@@ -18,3 +18,56 @@ jobs:
         with:
           node-version: '22'
       - run: node --test tests/qr-offline.test.cjs
+
+  publish:
+    name: Update shaztech.io
+    needs: test
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish-shaztech-io
+      cancel-in-progress: false
+    steps:
+      - name: Check out website
+        uses: actions/checkout@v5
+        with:
+          repository: shaztechio/shaztech.io
+          ref: main
+          path: website
+          ssh-key: ${{ secrets.SHAZTECH_IO_DEPLOY_KEY }}
+      - name: Publish tested QR Studio version
+        working-directory: website
+        shell: bash
+        env:
+          QR_COMMIT: ${{ github.sha }}
+          QR_REPOSITORY: https://github.com/shaztechio/qr-studio.git
+        run: |
+          set -euo pipefail
+          if [[ ! "$QR_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid QR Studio commit." >&2
+            exit 1
+          fi
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            latest="$(git ls-remote "$QR_REPOSITORY" refs/heads/main | cut -f1)"
+            if [[ "$latest" != "$QR_COMMIT" ]]; then
+              echo "A newer QR Studio commit exists; skipping this release."
+              exit 0
+            fi
+            printf '%s\n' "$QR_COMMIT" > qr-studio.version
+            git add qr-studio.version
+            if git diff --cached --quiet; then
+              echo "This QR Studio version is already selected."
+              exit 0
+            fi
+            git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              -c commit.gpgsign=false commit -m "Deploy QR Studio $QR_COMMIT"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Website changed while publishing; retrying ($attempt/3)."
+          done
+          echo "Could not update the website after three attempts." >&2
+          exit 1

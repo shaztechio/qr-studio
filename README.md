@@ -36,9 +36,19 @@ The worker uses the network first with a three-second timeout, then falls back t
 
 ## Deployment
 
-The shaztech.io website deploys `index.html` and `sw.js` from a pinned commit of this repository to `/apps/qr/`. Updating this repository alone does not update the live app. To release a change, run the tests, update the QR Studio checkout commit in the website’s `.github/workflows/pages.yml`, and deploy the website.
+Every push to `main` runs the offline tests. Once they pass, a separate job updates `qr-studio.version` in the shaztech.io website repository to that exact tested commit. That commit triggers GitHub Pages, which runs the tests again and deploys `index.html` and `sw.js` to https://shaztech.io/apps/qr/.
 
-The app URL and service worker scope remain https://shaztech.io/apps/qr/.
+Pull requests run tests only. Failed tests prevent publication. Older runs skip publication when a newer commit is already on `main`. You can manually rerun the workflow on `main` to retry a release; selecting an already-published version is a no-op. If publication succeeded but the website deployment failed, rerun the website's Pages workflow.
+
+The app URL and service worker scope remain unchanged. Publishing can take a few minutes after tests pass.
+
+### Deployment credentials
+
+The `SHAZTECH_IO_DEPLOY_KEY` Actions secret contains a dedicated SSH key with write access only to the shaztech.io repository. It is used only by the main-branch publishing job, after tests pass. The matching deploy key on the website repository is titled `QR Studio automatic deployment`.
+
+To rotate it, add a replacement write-enabled deploy key to the website repository, update this repository's secret, verify a release, then remove the old key. To disable automatic publication, remove the secret and revoke the corresponding website deploy key.
+
+For a rollback, commit a previous known-good SHA to the website's `qr-studio.version`. The next successful main-branch release will advance it again.
 
 ## License
 
