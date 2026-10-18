@@ -67,6 +67,7 @@
             }
             .github-link {
                 display: inline-flex;
+                margin-left: auto;
                 align-items: center;
                 justify-content: center;
                 width: 44px;
@@ -489,7 +490,7 @@ THE SOFTWARE.
     <body>
         <div class="shell">
             <nav class="site-links" aria-label="Project links">
-                <a class="back-link" href="https://shaztech.io/">← Back to shaztech.io</a>
+                <a class="back-link" id="back-link" hidden>← Back</a>
                 <a
                     class="github-link"
                     href="https://github.com/shaztechio/qr-studio"
@@ -3250,6 +3251,19 @@ Or type something you’d like to share…"
             });
         </script>
         <script>
+            if (document.referrer) {
+                try {
+                    const referrer = new URL(document.referrer);
+                    if (["http:", "https:"].includes(referrer.protocol)) {
+                        const backLink = document.getElementById("back-link");
+                        backLink.href = referrer.href;
+                        backLink.textContent = "← Back to " + referrer.hostname;
+                        backLink.hidden = false;
+                    }
+                } catch {
+                    // Keep the link hidden if the referrer is not a valid URL.
+                }
+            }
             qrcode.stringToBytes = (s) =>
                 Array.from(new TextEncoder().encode(s));
             window.addEventListener("load", async () => {
